@@ -54,10 +54,11 @@ class PretrainedBert(torch.nn.Module):
 
 # create a custom Dataset Class to be used for the dataloader
 class BertDataset(Dataset):
-	def __init__(self, dataset, args):
+	def __init__(self, dataset, args,split):
 		self.dataset		= dataset
-		self.p 				= args
+		self.p 			= args
 		self.tokenizer		= BertTokenizer.from_pretrained('bert-base-uncased')
+		self.split              = split
 
 		
 	def __len__(self):
@@ -80,7 +81,8 @@ class BertDataset(Dataset):
 		return token_ids, token_type_ids, attention_mask, labels, sents
 
 	def collate_fn(self, all_data):
-		all_data.sort(key = lambda x: -len(x[2])) # sort by number of tokens
+		if self.split == 'train':
+			all_data.sort(key = lambda x: -len(x[2])) # sort by number of tokens
 
 		batches 		= []
 		num_batches 	= int(np.ceil(len(all_data) / self.p.batch_size))
@@ -175,7 +177,7 @@ def model_eval(dataloader, model, args, save_file=None):
 
 	if save_file is not None:
 		out_fp = open(save_file, 'w')
-		for sent, pred in zip(sents, preds):
+		for sent, pred in zip(sents, y_pred):
 			out_fp.write(f"{pred} ||| {sent}\n")
 		out_fp.close()
 
@@ -192,11 +194,11 @@ if __name__ == "__main__":
 	dev_data					= create_data(args.dev,		'valid')
 	test_data					= create_data(args.test,	'test')
 
-	train_dataset   				= BertDataset(train_data, args)
-	dev_dataset   					= BertDataset(dev_data, args)
-	test_dataset   					= BertDataset(test_data, args)
+	train_dataset   				= BertDataset(train_data, args, 'train')
+	dev_dataset   					= BertDataset(dev_data, args, 'dev')
+	test_dataset   					= BertDataset(test_data, args, 'test')
 	
-	train_dataloader 				= DataLoader(train_dataset, 	shuffle = True,  batch_size= args.batch_size, collate_fn= train_dataset.collate_fn)
+	train_dataloader 				= DataLoader(train_dataset, 		shuffle = True,  batch_size= args.batch_size, collate_fn= train_dataset.collate_fn)
 	dev_dataloader 					= DataLoader(dev_dataset, 	 	shuffle = False, batch_size= args.batch_size, collate_fn= dev_dataset.collate_fn)
 	test_dataloader 				= DataLoader(test_dataset, 	 	shuffle = False, batch_size= args.batch_size, collate_fn= test_dataset.collate_fn)
 
